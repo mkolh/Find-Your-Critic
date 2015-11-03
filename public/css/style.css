@@ -1,0 +1,33 @@
+# Empty CSS file for your own CSS
+
+body {
+  padding-top: 50px;
+    margin: 0;
+}
+
+.right {
+    float: right;
+    width: 300px;
+    background-color: #b0e0e6;
+}
+
+
+.container {
+  background-color: #F7F7F7;
+  border: 1px solid #DDD;
+};
+
+.fresh button {
+	background-color: red;
+};
+
+.fresh button {
+	background-color: red;
+};
+.rotten{
+	float: right;
+};
+
+/*Stolen*/
+
+

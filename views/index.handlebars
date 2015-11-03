@@ -1,0 +1,28 @@
+<table class="table">
+    <thead>
+        <tr>
+            <td>FirstName</td>
+            <td>LastName</td>
+        </tr>
+    </thead>
+    <tbody>
+        {{#each critics}}
+        <tr>
+            <td>{{@index}}</td>
+            <td>{{this.name}}</td>
+            <td>{{this.publication}}</td>
+        </tr>
+        {{/each}}
+    </tbody>
+</table>
+
+{{#unless data}}
+<small>No Data Passed</small>
+{{/unless}}
+
+<form action="/" method="post"> 
+           Enter your name: 
+           <input type="text" name="userName" placeholder="..." /> 
+           <br> 
+           <button type="submit">Submit</button> 
+</form>
