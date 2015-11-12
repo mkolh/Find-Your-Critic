@@ -9,6 +9,7 @@ var bodyParser = require('body-parser');
 var Q = require('q'); //unused
 var async = require('async');
 var Xray = require('x-ray');
+var x = new Xray();
 
 var app = express();
 
@@ -25,7 +26,7 @@ app.set('view engine', 'handlebars');
 var urlTwo = "http://www.rottentomatoes.com/m/the_dark_knight/reviews/";
 
 //data dump
-var data = {critics: []};
+var data = {};
 //constructor function for objects stored in data dump
 function Critic(name, publication, image, fresh){
 	this.name = name,
@@ -36,75 +37,73 @@ function Critic(name, publication, image, fresh){
 
 //wrapper for the request function, initial thought was to use this to pass different
 //urls into the request function
-function findMovie(url){
-	request(url, function(error, response, body){
-		if(!error){
-			//load the html
-			var $ = cheerio.load(body);
+function findMovie(url, callback){
+	console.log("Searching for movies...");
+	var targetURL;
 
-			//clear critics
-			data = {critics:[]};
-
-			//movie poster and name
-			var name = $('.col-left .center a img').attr('title');
-			var imageURL = $('.col-left .center a img').attr('src');
-
-			//each loop to collect review info and push to data dump
-			$('.review_table_row').each(function(i, elem){
-
-				var reviewerName = $(".critic_name a", this).text();
-				var reviewerPublication = $(".critic_name em", this).text();
-				var reviewerImage = $("img", this).attr("src");
-				var fresh;
-
-				//set the fresh value
-				var freshTest = $(".fresh", this).length;
-				if(freshTest > 0){
-					fresh = true;
-				}else{
-					fresh = false;
-				};
-
-				//construct and push object to dump
-				var newCritic = new Critic(reviewerName, reviewerPublication, reviewerImage, fresh);
-				data.critics.push(newCritic);
-			});
-
-		}else{
-			console.log("Error: " + error);
-		}
+	if(url){
+		targetURL = url;
+	}else{
+		targetURL = 'http://www.rottentomatoes.com/m/the_dark_knight/reviews/';
+	}
+	x(targetURL, '.review_table_row', [{
+		name: '.critic_name a',
+		publication: '.critic_name em',
+		image: 'img@src',
+		review: '.review_container .review_icon @class'
+	}])
+	(function(err, obj){
+		data.reviews = obj;
+		
+		callback();
 	});
+
 }
 
-//clear critics utililty !!!!DOES NOT WORK!!!!
-function clearCritics(data){
-	data = {critics:[]};
+//renaming utilitiy to conform to rottenT's naming convention
+function rottenRename(movie){
+	if(movie.split(" ").length > 1){
+		movie = movie.split(" ");
+		var renamed = movie.map(function(e, i){
+			console.log(i);
+			console.log(e);
+			e = e.toLowerCase();
+			return e;
+		});
+		return renamed.join("_");
+	}else{
+		return movie.toLowerCase();
+	}
 }
-
-
-var x = new Xray();
-x('http://google.com', 'title')(function(err, title){
-	console.log(title); // Google
-});
-
 
 /* ~~~~~~~~~~~~~~~~~~ */
 
 
 //set initial data on load
-findMovie(urlTwo);
+
 
 //initial render GET
 app.get('/', function(req, res){
+	console.log("Got a Get Request!");
 	//render using index template and the data dump
-	res.render('index', data);
+	async.series([
+		function first(callback){
+			findMovie(urlTwo, callback);
+		},
+		function(err){
+			console.log("rendering...");
+			res.render('index', data);
+		}
+	]);	
 });
 
 ///BROKEN !!!!
 //Attempting to use input data to reload find movie function
 app.post('/', function(req, res){
 	//use body-parser to set name;
-	var movie = req.body.userName;
+	var movie = rottenRename(req.body.userName);
+
+	console.log("Got a different Get request! Searching for " + movie);
 
 	//create new url
 	var newURL = 'http://www.rottentomatoes.com/m/' + movie + '/reviews/'
@@ -112,13 +111,13 @@ app.post('/', function(req, res){
 	async.series([
 		//first function
 		function(callback){
-			findMovie(newURL);
-			callback();
+			findMovie(newURL, callback);
 		},
 
 		//final function
 		function(err){
-			res.send('index', data);
+			console.log("rendering...");
+			res.render('index', data);
 		}
 	]);
 
