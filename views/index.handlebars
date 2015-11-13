@@ -1,16 +1,17 @@
 <table class="table">
     <thead>
         <tr>
-            <td>FirstName</td>
-            <td>LastName</td>
+            <td>First Name</td>
+            <td>Last Name</td>
+            <td>Review</td>
         </tr>
     </thead>
     <tbody>
         {{#each reviews}}
         <tr>
-            <td>{{@index}}</td>
             <td>{{this.name}}</td>
             <td>{{this.publication}}</td>
+            <td>{{this.fresh}}</td>
         </tr>
         {{/each}}
     </tbody>
@@ -25,4 +26,8 @@
            <input type="text" name="userName" placeholder="..." /> 
            <br> 
            <button type="submit">Submit</button> 
+           <br>
+          <input type="radio" name="review" value="fresh" checked>Fresh
+          <br>
+          <input type="radio" name="review" value="rotten">Rotten
 </form>
