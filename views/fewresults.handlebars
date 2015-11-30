@@ -31,6 +31,7 @@
           <td>First Name</td>
           <td>Last Name</td>
           <td>Review</td>
+          <td>Images</td>
         </tr>
       </thead>
       <tbody>
@@ -39,6 +40,7 @@
           <td>{{this.name}}</td>
           <td>{{this.publication}}</td>
           <td>{{this.fresh}}</td>
+          <td><img src='{{this.image}}'></td>
         </tr>
         {{/each}}
       </tbody>
@@ -50,7 +52,7 @@
 
   </div>
 
-   <div class="prev-searches" id="prev-search">
+   <div class="prev-searches">
     Most Recent Searches:
     <ol>
       {{#each prevSearch}}
@@ -62,10 +64,6 @@
     {{/unless}}
   </div>
 
-<script type="text/javascript">
-  document.getElementById("prev-search").addEventListener("click", function(e){
-    console.log(e.target);
-  });
-</script>
+
 
 

@@ -6,6 +6,7 @@ var path = require('path');
 var bodyParser = require('body-parser');
 var async = require('async');
 var Xray = require('x-ray');
+var util = require('./utils.js');
 var x = new Xray();
 
 var app = express();
@@ -18,8 +19,10 @@ app.engine('handlebars', exphbs({defaultLayout: 'main'}));
 app.set('view engine', 'handlebars');
 
 
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
 //data dump
-var data = {reviews: []};
+var data = {reviews: [], prevSearch: []};
 var tempData = [];
 var counter = 1;
 
@@ -31,6 +34,14 @@ function Critic(name, publication, image, fresh){
 	this.fresh = fresh
 }
 
+function SearchItem(title, review, order){
+	this.title = title,
+	this.review = review,
+	this.order = order,
+	this.img = 0
+}
+
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 
 //wrapper for the request function
 function findMovie(url, callback){
@@ -44,9 +55,17 @@ function findMovie(url, callback){
 	}])
 	(function(err, obj){
 
+	if(obj.length === 0){
+		console.log("No object");
+		
+		//set global counter to 17, return;
+		counter = 18;
+		callback();
+		return;
+	}
 		//amending tempData, which is a global object....
-		addData(obj, tempData);
-
+		util.addData(obj, tempData);
+		
 		counter++;
 
 		callback();
@@ -55,136 +74,57 @@ function findMovie(url, callback){
 
 }
 
-
-/*~~~~~~~~~~UTILS~~~~~~~~~~~~*/
-
-//extracts and sets fresh property on all objects
-//pushes to holding array
-function addData(arr, data, choice){
-
-	for(var i = 0; i < arr.length; i++){
-		arr[i].fresh = arr[i].fresh.split(" ").pop();
-	}
-
-	data.push(arr);
-
-	console.log("New Data Added to Array");
-}
-
-//reduces two arrays: @data and @tempData
-//by finding a critic name match between the two
-//and matching it up against the user review of the @tempData
-function marryResults(arr, arrTwo, userChoice){
-
-	//if no length to @data, return temp as data
-	//meant for first search
-	if(arr.length === 0){
-		return arrTwo;
-	}
-
-	var _married = [];
-
-	//log through all @data Critic objects
-	for(var i = 0; i < arr.length; i++){
-
-		//loop through all @tempData Critic objects
-		for(var t = 0; t < arrTwo.length; t++){
-
-			//push to temp array the matches
-			if(arrTwo[t].name == arr[i].name){
-				console.log("FOUND ONE!!!!");
-				if(arrTwo[t].fresh === userChoice){
-					_married.push(arrTwo[t]);
-				}
-			}
-		}
-	}
-
-	return _married;
-}
-
-
-//renaming utilitiy to conform to rotten's naming convention
-function rottenRename(movie){
-	if(movie.split(" ").length > 1){
-		movie = movie.split(" ");
-		var renamed = movie.map(function(e, i){
-			console.log(i);
-			console.log(e);
-			e = e.toLowerCase();
-			return e;
-		});
-		return renamed.join("_");
-	}else{
-		return movie.toLowerCase();
-	}
-
-}
-
-//pagination string generator
-function strip(string, counter){
-	var temp = string.split("?page=");
-	
-	temp.splice(1, 1);
-
-	temp.push(counter);
-
-	return temp.join("?page=");
-}
-
-//filters for only matching reviews (user/critic)
-function filterMatches(arr, choice){
-	var result = arr.filter(function(e, i){
-		return e.fresh === choice;
-	});
-
-	return result;
-}
-
-/* ~~~~~~~~~~~~~~~~~~ */
-
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 
 //initial render GET
 app.get('/', function(req, res){
 	console.log("Got a Get Request!");
 
-	//render using index template and the data dump
-	res.render('index', data);
+	//clear out old data
+	util.clearData(data);
 
-	//clear array
-	tempData.length = [];	
+	//render using index template and the data dump
+	res.render('index', data);	
+
+
 });
 
 //main post request
 app.post('/', function(req, res){
+
 	//use body-parser to set movie name and choice;
-	var movie = rottenRename(req.body.userName);
+	var movie = util.rottenRename(req.body.titleName);
 	var choice = req.body.review;
 
-	//if no input, render w/o scraping
+	//add to search history
+	data.prevSearch.push(new SearchItem(movie, choice, data.prevSearch.length + 1));
+
+	//create new url, if no input, return w/o scraping
 	if(movie === ''){
-		console.log("No movie inout");
+		console.log("No more results");
 		res.render('index', data);
 		return;
 	}
+	var newURL = 'http://www.rottentomatoes.com/m/' + movie + '/reviews/?page=1';
 
-	console.log("Got a request! Searching for " + movie);
-
-	//create new url
-	var newURL = 'http://www.rottentomatoes.com/m/' + movie + '/reviews/?page=1'
 	
 	//asyncranously log through 17 pages of reviews
 	async.whilst(
+
 		//condition, will continue while true
-		function(){return counter <= 17 },
+		function(){return counter <= 17},
+
 		//function called each time
 		function(callback){
+		
 			//prep URL by amending over the expiring one
-			var nextURL = strip(newURL, counter);
+			var nextURL = util.strip(newURL, counter);
 
 			//async call
 			findMovie(nextURL, callback);
+		
 		},
+		
 		//final function, called after all 17 complete
 		function(err){
 
@@ -196,7 +136,7 @@ app.post('/', function(req, res){
 			}, []);
 
 			//filters results, passes filterMatches() as a function expression! Evaluates
-			tempData = marryResults(data.reviews, filterMatches(tempData, choice), choice);
+			tempData = util.marryResults(data.reviews, util.filterMatches(tempData, choice), choice);
 
 			//...conclusion...//
 			
@@ -213,12 +153,18 @@ app.post('/', function(req, res){
 			console.log("reseting counter, rendering...");
 
 			//renders
-			res.render('index', data);				
+			if(data.reviews.length < 10){
+				//render with images
+				res.render('fewresults', data);
+			}else{
+				res.render('index', data);					
+			}			
 		}
 	);
 
-	//clears GLOBAL array
+	//clearz array
 	tempData.length = [];
+	console.log(data);
 });
 
 //set port and listen
